@@ -37,21 +37,41 @@ const OneDriveManager = () => {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+  console.log("[Auth] Checking for existing account...");
 
-    console.log("[Graph] Fetching OneDrive files...");
-    axios.get("https://graph.microsoft.com/v1.0/me/drive/root/children", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(res => {
-      console.log("[Graph] Files retrieved:", res.data.value);
-      setFiles(res.data.value);
-    })
-    .catch(err => {
-      console.error("[Graph] Failed to fetch files:", err);
-      setError("Failed to fetch files: " + err.message);
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    console.log("[Auth] Already signed in as:", accounts[0]);
+    msalInstance.acquireTokenSilent({
+      scopes: authConfig.scopes,
+      account: accounts[0]
+    }).then(resp => {
+      console.log("[Auth] Token acquired silently.");
+      setToken(resp.accessToken);
+    }).catch(err => {
+      console.warn("[Auth] Silent token fetch failed, trying popup...");
+      msalInstance.loginPopup({ scopes: authConfig.scopes })
+        .then(resp => {
+          setToken(resp.accessToken);
+        })
+        .catch(err => {
+          console.error("[Auth] Login failed:", err);
+          setError("Login failed: " + err.message);
+        });
     });
-  }, [token]);
+  } else {
+    console.log("[Auth] No account found, triggering popup login...");
+    msalInstance.loginPopup({ scopes: authConfig.scopes })
+      .then(resp => {
+        setToken(resp.accessToken);
+      })
+      .catch(err => {
+        console.error("[Auth] Login failed:", err);
+        setError("Login failed: " + err.message);
+      });
+  }
+}, []);
+
 
   const convertToPdf = async (itemId, name) => {
     console.log(`[Convert] Converting ${name} to PDF...`);
