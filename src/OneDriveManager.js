@@ -20,23 +20,30 @@ const msalInstance = new PublicClientApplication({
   }
 });
 
+// Run before component: handle redirect response immediately
+let redirectToken = null;
+msalInstance.handleRedirectPromise().then(resp => {
+  if (resp && resp.accessToken) {
+    console.log("[Auth] Redirect token received");
+    redirectToken = resp.accessToken;
+  }
+});
+
 const OneDriveManager = () => {
   const [token, setToken] = useState(null);
   const [files, setFiles] = useState([]);
   const [error, setError] = useState("");
   const authRef = useRef(false);
 
-  // Handle redirect response after loginRedirect
-  msalInstance.handleRedirectPromise().then(resp => {
-    if (resp) {
-      console.log("[Auth] Redirect login complete:", resp.account);
-      setToken(resp.accessToken);
-    }
-  });
-
   useEffect(() => {
     if (authRef.current) return;
     authRef.current = true;
+
+    if (redirectToken) {
+      console.log("[Auth] Using redirect token");
+      setToken(redirectToken);
+      return;
+    }
 
     console.log("[Teams] Waiting for Teams SDK to initialize...");
     app.initialize().then(() => {
