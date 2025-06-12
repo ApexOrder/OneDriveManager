@@ -20,15 +20,6 @@ const msalInstance = new PublicClientApplication({
   }
 });
 
-// Run before component: handle redirect response immediately
-let redirectToken = null;
-msalInstance.handleRedirectPromise().then(resp => {
-  if (resp && resp.accessToken) {
-    console.log("[Auth] Redirect token received");
-    redirectToken = resp.accessToken;
-  }
-});
-
 const OneDriveManager = () => {
   const [token, setToken] = useState(null);
   const [files, setFiles] = useState([]);
@@ -40,46 +31,53 @@ const OneDriveManager = () => {
     if (authRef.current) return;
     authRef.current = true;
 
-    if (redirectToken) {
-      console.log("[Auth] Using redirect token");
-      setDebug("Using redirect token");
-      setToken(redirectToken);
-      return;
-    }
-
-    console.log("[Teams] Waiting for Teams SDK to initialize...");
-    setDebug("Initializing Teams SDK...");
-
-    app.initialize().then(() => {
-      console.log("[Teams] Teams SDK initialized.");
-      setDebug("Teams SDK initialized. Checking for accounts...");
-
-      const accounts = msalInstance.getAllAccounts();
-
-      if (accounts.length > 0) {
-        console.log("[Auth] Using cached account:", accounts[0]);
-        setDebug("Using cached account. Getting token...");
-
-        msalInstance.acquireTokenSilent({
-          scopes: authConfig.scopes,
-          account: accounts[0]
-        }).then(resp => {
-          setToken(resp.accessToken);
-          setDebug("Token acquired silently.");
-        }).catch(err => {
-          console.warn("[Auth] Silent token failed. Using redirect...");
-          setDebug("Silent failed. Redirecting for login...");
-          msalInstance.loginRedirect({ scopes: authConfig.scopes });
-        });
-      } else {
-        console.log("[Auth] No cached account, using loginRedirect...");
-        setDebug("No account. Redirecting for login...");
-        msalInstance.loginRedirect({ scopes: authConfig.scopes });
+    setDebug("Handling redirect result...");
+    msalInstance.handleRedirectPromise().then(resp => {
+      if (resp && resp.accessToken) {
+        console.log("[Auth] Redirect token received");
+        setToken(resp.accessToken);
+        setDebug("Redirect token processed");
+        return;
       }
+
+      console.log("[Teams] Waiting for Teams SDK to initialize...");
+      setDebug("Initializing Teams SDK...");
+
+      app.initialize().then(() => {
+        console.log("[Teams] Teams SDK initialized.");
+        setDebug("Teams SDK initialized. Checking for accounts...");
+
+        const accounts = msalInstance.getAllAccounts();
+
+        if (accounts.length > 0) {
+          console.log("[Auth] Using cached account:", accounts[0]);
+          setDebug("Using cached account. Getting token...");
+
+          msalInstance.acquireTokenSilent({
+            scopes: authConfig.scopes,
+            account: accounts[0]
+          }).then(resp => {
+            setToken(resp.accessToken);
+            setDebug("Token acquired silently.");
+          }).catch(err => {
+            console.warn("[Auth] Silent token failed. Using redirect...");
+            setDebug("Silent failed. Redirecting for login...");
+            msalInstance.loginRedirect({ scopes: authConfig.scopes });
+          });
+        } else {
+          console.log("[Auth] No cached account, using loginRedirect...");
+          setDebug("No account. Redirecting for login...");
+          msalInstance.loginRedirect({ scopes: authConfig.scopes });
+        }
+      }).catch(err => {
+        console.error("[Teams] Failed to initialize Teams SDK:", err);
+        setError("Teams SDK init failed: " + err.message);
+        setDebug("Teams SDK init failed");
+      });
     }).catch(err => {
-      console.error("[Teams] Failed to initialize Teams SDK:", err);
-      setError("Teams SDK init failed: " + err.message);
-      setDebug("Teams SDK init failed");
+      console.error("[Auth] Redirect handling error:", err);
+      setError("Auth error: " + err.message);
+      setDebug("Redirect handling failed");
     });
   }, []);
 
