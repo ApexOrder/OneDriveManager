@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { loginRequest } from "./authConfig";
 import { PublicClientApplication } from "@azure/msal-browser";
 import axios from "axios";
+
+const authConfig = {
+  clientId: process.env.REACT_APP_CLIENT_ID,
+  tenantId: process.env.REACT_APP_TENANT_ID,
+  authority: `https://login.microsoftonline.com/${process.env.REACT_APP_TENANT_ID}`,
+  redirectUri: window.location.origin + "/auth.html",
+  scopes: ["User.Read", "Files.ReadWrite.All", "Sites.Read.All"]
+};
+
 
 const msalInstance = new PublicClientApplication({
   auth: {
