@@ -26,6 +26,14 @@ const OneDriveManager = () => {
   const [error, setError] = useState("");
   const authRef = useRef(false);
 
+  // Handle redirect response after loginRedirect
+  msalInstance.handleRedirectPromise().then(resp => {
+    if (resp) {
+      console.log("[Auth] Redirect login complete:", resp.account);
+      setToken(resp.accessToken);
+    }
+  });
+
   useEffect(() => {
     if (authRef.current) return;
     authRef.current = true;
@@ -44,22 +52,12 @@ const OneDriveManager = () => {
         }).then(resp => {
           setToken(resp.accessToken);
         }).catch(err => {
-          console.warn("[Auth] Silent token failed. Falling back to popup...");
-          msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
-            setToken(resp.accessToken);
-          }).catch(loginErr => {
-            console.error("[Auth] Popup failed:", loginErr);
-            setError("Login failed: " + loginErr.message);
-          });
+          console.warn("[Auth] Silent token failed. Using redirect...");
+          msalInstance.loginRedirect({ scopes: authConfig.scopes });
         });
       } else {
-        console.log("[Auth] No cached account, using loginPopup...");
-        msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
-          setToken(resp.accessToken);
-        }).catch(err => {
-          console.error("[Auth] Login failed:", err);
-          setError("Login failed: " + err.message);
-        });
+        console.log("[Auth] No cached account, using loginRedirect...");
+        msalInstance.loginRedirect({ scopes: authConfig.scopes });
       }
     }).catch(err => {
       console.error("[Teams] Failed to initialize Teams SDK:", err);
