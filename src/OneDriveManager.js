@@ -3,13 +3,12 @@ import { PublicClientApplication } from "@azure/msal-browser";
 import axios from "axios";
 
 const authConfig = {
-  clientId: process.env.CLIENT_ID,
-  tenantId: process.env.TENANT_ID,
-  authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
+  clientId: process.env.REACT_APP_CLIENT_ID,
+  tenantId: process.env.REACT_APP_TENANT_ID,
+  authority: `https://login.microsoftonline.com/${process.env.REACT_APP_TENANT_ID}`,
   redirectUri: window.location.origin + "/auth.html",
   scopes: ["User.Read", "Files.ReadWrite.All", "Sites.Read.All"]
 };
-
 
 const msalInstance = new PublicClientApplication({
   auth: {
@@ -22,41 +21,69 @@ const msalInstance = new PublicClientApplication({
 const OneDriveManager = () => {
   const [token, setToken] = useState(null);
   const [files, setFiles] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
-      setToken(resp.accessToken);
-    });
+    console.log("[Auth] Starting Teams/MSAL login...");
+    msalInstance.loginPopup({ scopes: authConfig.scopes })
+      .then(resp => {
+        console.log("[Auth] Login success:", resp.account);
+        setToken(resp.accessToken);
+      })
+      .catch(err => {
+        console.error("[Auth] Login failed:", err);
+        setError("Login failed: " + err.message);
+      });
   }, []);
 
   useEffect(() => {
     if (!token) return;
+
+    console.log("[Graph] Fetching OneDrive files...");
     axios.get("https://graph.microsoft.com/v1.0/me/drive/root/children", {
       headers: { Authorization: `Bearer ${token}` }
-    }).then(res => {
+    })
+    .then(res => {
+      console.log("[Graph] Files retrieved:", res.data.value);
       setFiles(res.data.value);
+    })
+    .catch(err => {
+      console.error("[Graph] Failed to fetch files:", err);
+      setError("Failed to fetch files: " + err.message);
     });
   }, [token]);
 
   const convertToPdf = async (itemId, name) => {
-    const res = await axios.get(`https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content?format=pdf`, {
-      responseType: "blob",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name.replace(/\.docx$/, ".pdf");
-    a.click();
+    console.log(`[Convert] Converting ${name} to PDF...`);
+    try {
+      const res = await axios.get(`https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content?format=pdf`, {
+        responseType: "blob",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name.replace(/\.docx$/, ".pdf");
+      a.click();
+      console.log("[Convert] Download triggered.");
+    } catch (err) {
+      console.error("[Convert] Failed to convert file:", err);
+      setError("Convert failed: " + err.message);
+    }
   };
 
   return (
     <div style={{ padding: 20 }}>
       <h2>My OneDrive Files</h2>
+
+      {error && <div style={{ color: "red", marginBottom: 10 }}>{error}</div>}
+      {!token && <p>Authenticating with Microsoft...</p>}
+      {token && files.length === 0 && <p>Loading files from OneDrive...</p>}
+
       <ul>
         {files.map(file => (
           <li key={file.id}>
-            {file.name} 
+            {file.name}
             {file.name.endsWith(".docx") && (
               <button onClick={() => convertToPdf(file.id, file.name)}>Convert to PDF</button>
             )}
