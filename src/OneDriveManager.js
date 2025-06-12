@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import axios from "axios";
+import { app } from "@microsoft/teams-js";
 
 const authConfig = {
   clientId: process.env.REACT_APP_CLIENT_ID,
@@ -29,76 +30,59 @@ const OneDriveManager = () => {
     if (authRef.current) return;
     authRef.current = true;
 
-    const accounts = msalInstance.getAllAccounts();
+    console.log("[Teams] Waiting for Teams SDK to initialize...");
+    app.initialize().then(() => {
+      console.log("[Teams] Teams SDK initialized.");
 
-    if (accounts.length > 0) {
-      console.log("[Auth] Using cached account:", accounts[0]);
-      msalInstance.acquireTokenSilent({
-        scopes: authConfig.scopes,
-        account: accounts[0]
-      }).then(resp => {
-        setToken(resp.accessToken);
-      }).catch(err => {
-        console.warn("[Auth] Silent token failed. Falling back to popup...");
+      const accounts = msalInstance.getAllAccounts();
+
+      if (accounts.length > 0) {
+        console.log("[Auth] Using cached account:", accounts[0]);
+        msalInstance.acquireTokenSilent({
+          scopes: authConfig.scopes,
+          account: accounts[0]
+        }).then(resp => {
+          setToken(resp.accessToken);
+        }).catch(err => {
+          console.warn("[Auth] Silent token failed. Falling back to popup...");
+          msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
+            setToken(resp.accessToken);
+          }).catch(loginErr => {
+            console.error("[Auth] Popup failed:", loginErr);
+            setError("Login failed: " + loginErr.message);
+          });
+        });
+      } else {
+        console.log("[Auth] No cached account, using loginPopup...");
         msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
           setToken(resp.accessToken);
-        }).catch(loginErr => {
-          console.error("[Auth] Popup failed:", loginErr);
-          setError("Login failed: " + loginErr.message);
+        }).catch(err => {
+          console.error("[Auth] Login failed:", err);
+          setError("Login failed: " + err.message);
         });
-      });
-    } else {
-      console.log("[Auth] No cached account, using loginPopup...");
-      msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
-        setToken(resp.accessToken);
-      }).catch(err => {
-        console.error("[Auth] Login failed:", err);
-        setError("Login failed: " + err.message);
-      });
-    }
+      }
+    }).catch(err => {
+      console.error("[Teams] Failed to initialize Teams SDK:", err);
+      setError("Teams SDK init failed: " + err.message);
+    });
   }, []);
 
- useEffect(() => {
-  if (authRef.current) return;
-  authRef.current = true;
+  useEffect(() => {
+    if (!token) return;
 
-  console.log("[Teams] Waiting for Teams SDK to initialize...");
-  app.initialize().then(() => {
-    console.log("[Teams] Teams SDK initialized.");
-
-    const accounts = msalInstance.getAllAccounts();
-
-    if (accounts.length > 0) {
-      console.log("[Auth] Using cached account:", accounts[0]);
-      msalInstance.acquireTokenSilent({
-        scopes: authConfig.scopes,
-        account: accounts[0]
-      }).then(resp => {
-        setToken(resp.accessToken);
-      }).catch(err => {
-        console.warn("[Auth] Silent token failed. Falling back to popup...");
-        msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
-          setToken(resp.accessToken);
-        }).catch(loginErr => {
-          console.error("[Auth] Popup failed:", loginErr);
-          setError("Login failed: " + loginErr.message);
-        });
-      });
-    } else {
-      console.log("[Auth] No cached account, using loginPopup...");
-      msalInstance.loginPopup({ scopes: authConfig.scopes }).then(resp => {
-        setToken(resp.accessToken);
-      }).catch(err => {
-        console.error("[Auth] Login failed:", err);
-        setError("Login failed: " + err.message);
-      });
-    }
-  }).catch(err => {
-    console.error("[Teams] Failed to initialize Teams SDK:", err);
-    setError("Teams SDK init failed: " + err.message);
-  });
-}, []);
-
+    console.log("[Graph] Fetching OneDrive files...");
+    axios.get("https://graph.microsoft.com/v1.0/me/drive/root/children", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => {
+      console.log("[Graph] Files retrieved:", res.data.value);
+      setFiles(res.data.value);
+    })
+    .catch(err => {
+      console.error("[Graph] Failed to fetch files:", err);
+      setError("Failed to fetch files: " + err.message);
+    });
+  }, [token]);
 
   const convertToPdf = async (itemId, name) => {
     console.log(`[Convert] Converting ${name} to PDF...`);
