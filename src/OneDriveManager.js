@@ -1,4 +1,3 @@
-// 📁 src/OneDriveManager.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import axios from "axios";
@@ -25,87 +24,81 @@ const OneDriveManager = () => {
   const [files, setFiles] = useState([]);
   const [error, setError] = useState("");
   const [debug, setDebug] = useState("Initializing...");
+  const [debugLogs, setDebugLogs] = useState([]);
   const authRef = useRef(false);
+
+  const log = (msg, level = "log") => {
+    if (console[level]) console[level](msg);
+    setDebugLogs(prev => [...prev, msg]);
+    setDebug(msg);
+  };
 
   useEffect(() => {
     if (authRef.current) return;
     authRef.current = true;
 
-    setDebug("Handling redirect result...");
+    log("Handling redirect result...");
     msalInstance.handleRedirectPromise().then(resp => {
-      console.log("[MSAL] Redirect result:", resp);
+      log(`[MSAL] Redirect result: ${JSON.stringify(resp)}`);
 
       if (resp && resp.accessToken) {
-        console.log("[Auth] Redirect token received");
+        log("[Auth] Redirect token received");
         setToken(resp.accessToken);
-        setDebug("Redirect token processed");
+        log("Redirect token processed");
         return;
       }
 
-      setDebug("Initializing Teams SDK...");
+      log("[Teams] Waiting for Teams SDK to initialize...");
       app.initialize().then(() => {
-        console.log("[Teams] SDK initialized.");
-        setDebug("Teams SDK initialized. Checking for accounts...");
-
+        log("[Teams] SDK initialized.");
         const accounts = msalInstance.getAllAccounts();
 
         if (accounts.length > 0) {
-          console.log("[Auth] Found cached account:", accounts[0]);
-          setDebug("Cached account found. Getting token silently...");
-
+          log(`[Auth] Found cached account: ${accounts[0].username}`);
           msalInstance.acquireTokenSilent({
             scopes: authConfig.scopes,
             account: accounts[0]
           }).then(resp => {
             setToken(resp.accessToken);
-            setDebug("Token acquired silently.");
+            log("Token acquired silently.");
           }).catch(err => {
-            console.warn("[Auth] Silent token failed, redirecting...");
-            setDebug("Silent token failed. Redirecting to login...");
+            log(`[Auth] Silent token failed: ${err.message}`, "warn");
+            log("Redirecting for login...");
             msalInstance.loginRedirect({ scopes: authConfig.scopes });
           });
         } else {
-          console.log("[Auth] No cached account, redirecting to login...");
-          setDebug("No account. Redirecting to login...");
+          log("[Auth] No cached account, redirecting to login...");
           msalInstance.loginRedirect({ scopes: authConfig.scopes });
         }
       }).catch(err => {
-        console.error("[Teams] SDK init failed:", err);
+        log(`[Teams] SDK init failed: ${err.message}`, "error");
         setError("Teams SDK init failed: " + err.message);
-        setDebug("Teams SDK init failed");
       });
     }).catch(err => {
-      console.error("[MSAL] Redirect handling error:", err);
+      log(`[MSAL] Redirect handling error: ${err.message}`, "error");
       setError("Auth error: " + err.message);
-      setDebug("Redirect handling failed");
     });
   }, []);
 
   useEffect(() => {
     if (!token) return;
 
-    console.log("[Graph] Fetching OneDrive files...");
-    setDebug("Fetching files from OneDrive...");
-
+    log("[Graph] Fetching OneDrive files...");
     axios.get("https://graph.microsoft.com/v1.0/me/drive/root/children", {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => {
-      console.log("[Graph] Files retrieved:", res.data.value);
+      log(`[Graph] Files retrieved: ${res.data.value.length} items`);
       setFiles(res.data.value);
-      setDebug("Files loaded.");
     })
     .catch(err => {
-      console.error("[Graph] Failed to fetch files:", err);
+      log(`[Graph] Fetch failed: ${err.message}`, "error");
       setError("Failed to fetch files: " + err.message);
-      setDebug("Failed to fetch files");
     });
   }, [token]);
 
   const convertToPdf = async (itemId, name) => {
-    console.log(`[Convert] Converting ${name} to PDF...`);
-    setDebug(`Converting ${name} to PDF...`);
-
+    log(`[Convert] Converting ${name} to PDF...`);
     try {
       const res = await axios.get(`https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content?format=pdf`, {
         responseType: "blob",
@@ -116,19 +109,19 @@ const OneDriveManager = () => {
       a.href = url;
       a.download = name.replace(/\.docx$/, ".pdf");
       a.click();
-      console.log("[Convert] Download triggered.");
-      setDebug("Download triggered");
+      log("[Convert] Download triggered.");
     } catch (err) {
-      console.error("[Convert] Failed to convert file:", err);
+      log(`[Convert] Failed to convert file: ${err.message}`, "error");
       setError("Convert failed: " + err.message);
-      setDebug("Convert failed");
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>My OneDrive Files</h2>
-      <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>Debug: {debug}</div>
+    <div style={{ padding: 20, color: "#fff", fontFamily: "Arial" }}>
+      <h2 style={{ color: "yellow" }}>My OneDrive Files</h2>
+      <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>
+        Debug: {debug}
+      </div>
 
       {error && <div style={{ color: "red", marginBottom: 10 }}>{error}</div>}
       {!token && <p>Authenticating with Microsoft...</p>}
@@ -144,6 +137,13 @@ const OneDriveManager = () => {
           </li>
         ))}
       </ul>
+
+      <div style={{ marginTop: 30, padding: 10, background: "#222", borderRadius: 5 }}>
+        <strong>Debug Log</strong>
+        <pre style={{ fontSize: 12, maxHeight: 200, overflowY: "auto" }}>
+{debugLogs.map((msg, i) => `• ${msg}\n`)}
+        </pre>
+      </div>
     </div>
   );
 };
