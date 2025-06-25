@@ -1,17 +1,12 @@
+<!-- public/auth.html -->
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Authenticating...</title>
-  <script>
-    // This helps MSAL pass the auth result back to the opener (Teams webview)
-    if (window.opener) {
-      window.opener.postMessage(location.href, "*");
-      window.close();
-    }
-  </script>
-</head>
-<body>
-  <p>Redirecting back to your app...</p>
-</body>
+<html>
+  <head>
+    <title>Redirecting...</title>
+    <script>
+      // Let MSAL finish handling redirect, then go back to app
+      window.location.href = "/";
+    </script>
+  </head>
+  <body></body>
 </html>
