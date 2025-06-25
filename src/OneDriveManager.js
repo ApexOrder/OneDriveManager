@@ -7,7 +7,7 @@ import { app } from "@microsoft/teams-js";
 const authConfig = {
   clientId: process.env.REACT_APP_CLIENT_ID,
   tenantId: process.env.REACT_APP_TENANT_ID,
-  authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
+  authority: `https://login.microsoftonline.com/${process.env.REACT_APP_TENANT_ID}`,
   redirectUri: window.location.origin + "/auth.html",
   scopes: ["User.Read", "Files.ReadWrite.All", "Sites.Read.All"]
 };
@@ -33,6 +33,8 @@ const OneDriveManager = () => {
 
     setDebug("Handling redirect result...");
     msalInstance.handleRedirectPromise().then(resp => {
+      console.log("[MSAL] Redirect result:", resp);
+
       if (resp && resp.accessToken) {
         console.log("[Auth] Redirect token received");
         setToken(resp.accessToken);
@@ -40,18 +42,16 @@ const OneDriveManager = () => {
         return;
       }
 
-      console.log("[Teams] Waiting for Teams SDK to initialize...");
       setDebug("Initializing Teams SDK...");
-
       app.initialize().then(() => {
-        console.log("[Teams] Teams SDK initialized.");
+        console.log("[Teams] SDK initialized.");
         setDebug("Teams SDK initialized. Checking for accounts...");
 
         const accounts = msalInstance.getAllAccounts();
 
         if (accounts.length > 0) {
-          console.log("[Auth] Using cached account:", accounts[0]);
-          setDebug("Using cached account. Getting token...");
+          console.log("[Auth] Found cached account:", accounts[0]);
+          setDebug("Cached account found. Getting token silently...");
 
           msalInstance.acquireTokenSilent({
             scopes: authConfig.scopes,
@@ -60,22 +60,22 @@ const OneDriveManager = () => {
             setToken(resp.accessToken);
             setDebug("Token acquired silently.");
           }).catch(err => {
-            console.warn("[Auth] Silent token failed. Using redirect...");
-            setDebug("Silent failed. Redirecting for login...");
+            console.warn("[Auth] Silent token failed, redirecting...");
+            setDebug("Silent token failed. Redirecting to login...");
             msalInstance.loginRedirect({ scopes: authConfig.scopes });
           });
         } else {
-          console.log("[Auth] No cached account, using loginRedirect...");
-          setDebug("No account. Redirecting for login...");
+          console.log("[Auth] No cached account, redirecting to login...");
+          setDebug("No account. Redirecting to login...");
           msalInstance.loginRedirect({ scopes: authConfig.scopes });
         }
       }).catch(err => {
-        console.error("[Teams] Failed to initialize Teams SDK:", err);
+        console.error("[Teams] SDK init failed:", err);
         setError("Teams SDK init failed: " + err.message);
         setDebug("Teams SDK init failed");
       });
     }).catch(err => {
-      console.error("[Auth] Redirect handling error:", err);
+      console.error("[MSAL] Redirect handling error:", err);
       setError("Auth error: " + err.message);
       setDebug("Redirect handling failed");
     });
