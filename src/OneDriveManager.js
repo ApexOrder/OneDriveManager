@@ -41,12 +41,20 @@ const OneDriveManager = () => {
     msalInstance.handleRedirectPromise().then(resp => {
       log(`[MSAL] Redirect result: ${JSON.stringify(resp)}`);
 
-      if (resp && resp.accessToken) {
-        log("[Auth] Redirect token received");
-        setToken(resp.accessToken);
-        log("Redirect token processed");
-        return;
-      }
+      msalInstance.handleRedirectPromise().then(resp => {
+  if (resp) {
+    log("[MSAL] Redirect response received");
+    log(`Access Token: ${resp.accessToken}`);
+    setToken(resp.accessToken);
+    setDebug("Redirect token processed");
+    return;
+  } else {
+    log("[MSAL] Redirect result: null (no token returned)");
+  }
+}).catch(err => {
+  log(`[MSAL] Redirect handling error: ${err.message}`, "error");
+});
+
 
       log("[Teams] Waiting for Teams SDK to initialize...");
       app.initialize().then(() => {
