@@ -5,8 +5,8 @@ import axios from "axios";
 import { app } from "@microsoft/teams-js";
 
 const authConfig = {
-  clientId: process.env.CLIENT_ID,
-  tenantId: process.env.TENANT_ID,
+  clientId: process.env.REACT_APP_CLIENT_ID,
+  tenantId: process.env.REACT_APP_TENANT_ID,
   authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
   redirectUri: window.location.origin + "/auth.html",
   scopes: ["User.Read", "Files.ReadWrite.All", "Sites.Read.All"]
