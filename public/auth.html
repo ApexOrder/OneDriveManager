@@ -1,20 +1,37 @@
 <!DOCTYPE html>
 <html>
-  <head><title>Authenticating...</title></head>
-  <body>
-    <script src="https://statics.teams.cdn.office.net/sdk/v1.13.0/js/MicrosoftTeams.min.js"></script>
-    <script>
-      microsoftTeams.app.initialize().then(() => {
-        microsoftTeams.authentication.getAuthToken({
-          resources: ["https://graph.microsoft.com"],
-          successCallback: function (token) {
-            microsoftTeams.authentication.notifySuccess(token);
-          },
-          failureCallback: function (error) {
-            microsoftTeams.authentication.notifyFailure(error);
-          }
-        });
+<head>
+  <title>Authenticating...</title>
+  <script src="https://statics.teams.cdn.office.net/sdk/v1.13.0/js/MicrosoftTeams.min.js"></script>
+</head>
+<body>
+  <div id="log" style="font-family: monospace;"></div>
+
+  <script>
+    const log = (msg) => {
+      document.getElementById("log").innerHTML += msg + "<br>";
+      console.log(msg);
+    };
+
+    log("📦 Page loaded");
+
+    microsoftTeams.app.initialize().then(() => {
+      log("✅ Teams SDK initialized");
+
+      microsoftTeams.authentication.getAuthToken({
+        resources: ["https://graph.microsoft.com"],
+        successCallback: function (token) {
+          log("✅ Token acquired");
+          microsoftTeams.authentication.notifySuccess(token);
+        },
+        failureCallback: function (error) {
+          log("❌ Auth failed: " + error);
+          microsoftTeams.authentication.notifyFailure(error);
+        }
       });
-    </script>
-  </body>
+    }).catch(err => {
+      log("❌ Teams SDK init failed: " + err.message);
+    });
+  </script>
+</body>
 </html>
