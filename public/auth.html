@@ -1,63 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Teams SSO Auth</title>
-  <script src="https://res.cdn.office.net/teams-js/2.17.0/js/MicrosoftTeams.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Teams Auth</title>
+  <script type="text/javascript">
+    // Delay until DOM + SDK load
+    document.addEventListener("DOMContentLoaded", () => {
+      const log = (msg) => {
+        const el = document.getElementById("log");
+        if (el) el.textContent += "\n" + msg;
+      };
+
+      log("📦 DOM loaded. Waiting for Teams SDK...");
+
+      const script = document.createElement("script");
+      script.src = "https://res.cdn.office.net/teams-js/2.17.0/js/MicrosoftTeams.min.js";
+      script.onload = () => {
+        log("✅ Teams SDK script loaded.");
+
+        microsoftTeams.app.initialize().then(() => {
+          log("✅ Teams SDK initialized. Requesting token...");
+
+          microsoftTeams.authentication.getAuthToken({
+            resources: ["https://graph.microsoft.com"],
+            successCallback: (token) => {
+              log("✅ Token received.");
+              try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                log("🔍 Token payload:");
+                log("• aud: " + payload.aud);
+                log("• scp: " + payload.scp);
+              } catch (e) {
+                log("⚠️ Failed to parse token.");
+              }
+              microsoftTeams.authentication.notifySuccess(token);
+            },
+            failureCallback: (err) => {
+              log("❌ Token fetch failed: " + err);
+              microsoftTeams.authentication.notifyFailure(err);
+            }
+          });
+        }).catch(err => {
+          log("❌ Teams SDK init failed: " + err.message);
+        });
+      };
+
+      script.onerror = () => {
+        log("❌ Failed to load Teams SDK script.");
+      };
+
+      document.head.appendChild(script);
+    });
+  </script>
   <style>
     body {
-      background-color: #111;
-      color: #f1f1f1;
+      background: #0d1117;
+      color: #c9d1d9;
       font-family: monospace;
       padding: 20px;
     }
     #log {
+      background: #161b22;
+      padding: 10px;
+      border-radius: 5px;
       white-space: pre-wrap;
-      background: #222;
-      padding: 15px;
-      border-radius: 6px;
     }
   </style>
 </head>
 <body>
-  <h2>🔐 Teams SSO Authentication</h2>
-  <div id="log">📦 Page loaded...</div>
-
-  <script>
-    const log = (msg) => {
-      document.getElementById("log").textContent += "\n" + msg;
-    };
-
-    log("📦 Initializing SDK...");
-
-    microsoftTeams.app.initialize().then(() => {
-      log("✅ SDK initialized");
-
-      microsoftTeams.authentication.getAuthToken({
-        resources: ["https://graph.microsoft.com"],
-        successCallback: (token) => {
-          log("✅ Token received");
-          try {
-            const payload = JSON.parse(atob(token.split(".")[1]));
-            log("🔍 Token payload:");
-            log("• aud: " + payload.aud);
-            log("• scp: " + payload.scp);
-            log("• upn: " + payload.upn);
-          } catch {
-            log("⚠️ Failed to decode token.");
-          }
-
-          microsoftTeams.authentication.notifySuccess(token);
-        },
-        failureCallback: (error) => {
-          log("❌ getAuthToken failed: " + error);
-          microsoftTeams.authentication.notifyFailure(error);
-        }
-      });
-
-    }).catch(err => {
-      log("❌ SDK init error: " + err.message);
-    });
-  </script>
+  <h2>🔐 Teams Authentication</h2>
+  <div id="log">Starting...</div>
 </body>
 </html>
