@@ -15,33 +15,33 @@ const OneDriveManager = () => {
     app.initialize().then(() => {
       addLog("✅ Teams SDK initialized. Requesting SSO token...");
 
-      authentication.getAuthToken({
-  resources: ["https://graph.microsoft.com"],
-  successCallback: (token) => {
-  addLog("✅ SSO token received. Fetching OneDrive files...");
+      authentication.authenticate({
+  url: `https://one-drive-manager.vercel.app/auth.html`,
+  width: 600,
+  height: 535,
+  successCallback: (result) => {
+    addLog("✅ SSO token received from popup.");
+    try {
+      const parts = result.split(".");
+      const payload = JSON.parse(atob(parts[1]));
+      addLog("🔍 Token payload:");
+      addLog("• aud: " + payload.aud);
+      addLog("• scopes: " + payload.scp);
+      addLog("• upn: " + payload.upn);
+      addLog("• oid: " + payload.oid);
+    } catch (e) {
+      addLog("⚠️ Failed to decode token payload.");
+    }
 
-  // Decode token
-  try {
-    const parts = token.split(".");
-    const payload = JSON.parse(atob(parts[1]));
-    addLog("🔍 Token payload:");
-    addLog("• aud: " + payload.aud);
-    addLog("• scopes: " + payload.scp);
-    addLog("• upn: " + payload.upn);
-    addLog("• oid: " + payload.oid);
-  } catch (e) {
-    addLog("⚠️ Failed to decode token payload.");
-  }
-
-  setToken(token);
-},
-
+    setToken(result);
+  },
   failureCallback: (err) => {
-    console.error("❌ Teams SSO failed:", err);
-    addLog("❌ Teams SSO failed: " + err);
-    setError("Teams SSO failed: " + err);
+    console.error("❌ Auth failed:", err);
+    addLog("❌ Auth failed: " + err);
+    setError("Auth failed: " + err);
   }
 });
+
 
     }).catch(err => {
       console.error("❌ Teams SDK init failed:", err);
