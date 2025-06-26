@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import axios from "axios";
+import { app } from "@microsoft/teams-js";
 
 const authConfig = {
   clientId: process.env.REACT_APP_CLIENT_ID,
@@ -21,8 +22,8 @@ const msalInstance = new PublicClientApplication({
 const OneDriveManager = () => {
   const [token, setToken] = useState(null);
   const [files, setFiles] = useState([]);
-  const [debugLogs, setDebugLogs] = useState([]);
   const [error, setError] = useState("");
+  const [debugLogs, setDebugLogs] = useState([]);
   const authRef = useRef(false);
 
   const log = (msg, level = "log") => {
@@ -34,7 +35,7 @@ const OneDriveManager = () => {
     if (authRef.current) return;
     authRef.current = true;
 
-    log("Handling redirect result...");
+    log("🔄 Starting auth flow...");
     msalInstance.handleRedirectPromise().then(resp => {
       if (resp && resp.accessToken) {
         log("✅ Redirect token received");
@@ -42,30 +43,60 @@ const OneDriveManager = () => {
         return;
       }
 
-      log("⚠️ Redirect result: null (no token received)");
+      log("🧠 No redirect token. Checking Teams context...");
 
-      const accounts = msalInstance.getAllAccounts();
-      if (accounts.length > 0) {
-        log("Using cached account: " + accounts[0].username);
-        msalInstance.acquireTokenSilent({
-          scopes: authConfig.scopes,
-          account: accounts[0]
-        }).then(resp => {
-          setToken(resp.accessToken);
-          log("✅ Token acquired silently");
+      app.initialize().then(() => {
+        log("✅ Teams SDK initialized");
+        app.getContext().then(() => {
+          log("📦 Running inside Teams. Using popup login...");
+
+          msalInstance.loginPopup({ scopes: authConfig.scopes })
+            .then(resp => {
+              if (resp.accessToken) {
+                log("✅ Access token received via popup");
+                setToken(resp.accessToken);
+              } else {
+                log("❌ No token in popup response");
+              }
+            })
+            .catch(err => {
+              log("❌ Popup login failed: " + err.message, "error");
+              setError("Popup login failed: " + err.message);
+            });
+
         }).catch(err => {
-          log("Silent token error: " + err.message, "warn");
-          msalInstance.loginRedirect({ scopes: authConfig.scopes });
+          log("⚠️ Failed to get Teams context: " + err.message);
+          fallbackToWebAuth();
         });
-      } else {
-        log("🔁 No cached account. Redirecting to login...");
-        msalInstance.loginRedirect({ scopes: authConfig.scopes });
-      }
+      }).catch(err => {
+        log("⚠️ Teams SDK init failed: " + err.message);
+        fallbackToWebAuth();
+      });
     }).catch(err => {
-      log("MSAL redirect error: " + err.message, "error");
+      log("❌ Redirect handling error: " + err.message, "error");
       setError("Auth error: " + err.message);
     });
   }, []);
+
+  const fallbackToWebAuth = () => {
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      log("🔐 Found cached account: " + accounts[0].username);
+      msalInstance.acquireTokenSilent({
+        scopes: authConfig.scopes,
+        account: accounts[0]
+      }).then(resp => {
+        setToken(resp.accessToken);
+        log("✅ Token acquired silently");
+      }).catch(err => {
+        log("⚠️ Silent token failed: " + err.message);
+        msalInstance.loginRedirect({ scopes: authConfig.scopes });
+      });
+    } else {
+      log("🔁 No account found. Using loginRedirect...");
+      msalInstance.loginRedirect({ scopes: authConfig.scopes });
+    }
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -79,7 +110,7 @@ const OneDriveManager = () => {
       setFiles(res.data.value);
     })
     .catch(err => {
-      log("OneDrive fetch error: " + err.message, "error");
+      log("❌ OneDrive fetch error: " + err.message, "error");
       setError("Failed to fetch files: " + err.message);
     });
   }, [token]);
@@ -95,7 +126,7 @@ const OneDriveManager = () => {
           <li key={file.id}>
             {file.name}
             {file.name.endsWith(".docx") && (
-              <button onClick={() => alert("Convert to PDF not re-added yet.")}>Convert to PDF</button>
+              <button onClick={() => alert("Convert to PDF coming soon.")}>Convert to PDF</button>
             )}
           </li>
         ))}
