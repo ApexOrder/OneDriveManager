@@ -1,32 +1,65 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Auth</title>
-  <script src="https://res.cdn.office.net/teams-js/2.0.0/js/MicrosoftTeams.min.js"></script>
-  <script src="https://alcdn.msauth.net/browser/2.34.0/js/msal-browser.min.js"></script>
-</head>
-<body>
-  <script>
-    // Initialize MS Teams SDK (authentication context doesn't need app.initialize)
-    microsoftTeams.app.initialize().then(() => {
-      const msal = new msal.PublicClientApplication({
-        auth: {
-          clientId: "755bd32d-b71e-4759-8423-bbe949e8fa89", // Your App (client) ID
-          authority: "https://login.microsoftonline.com/e6034c41-717a-422c-8846-c8466bf7c45a", // Your tenant ID
-          redirectUri: window.location.href
-        }
-      });
+  <head>
+    <title>Teams SSO Auth</title>
+    <script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"></script>
+    <script src="https://statics.teams.cdn.office.net/sdk/v1.13.0/js/MicrosoftTeams.min.js"></script>
+  </head>
+  <body>
+    <script>
+      (async () => {
+        // Vercel-injected env vars
+        const clientId = "__NEXT_PUBLIC_CLIENT_ID__";
+        const tenantId = "__NEXT_PUBLIC_TENANT_ID__";
 
-      msal.loginPopup({
-        scopes: ["https://graph.microsoft.com/.default", "openid", "profile"]
-      }).then(result => {
-        microsoftTeams.authentication.notifySuccess(result.accessToken);
-      }).catch(err => {
-        microsoftTeams.authentication.notifyFailure(err.toString());
-      });
-    }).catch(err => {
-      microsoftTeams.authentication.notifyFailure("Teams SDK failed: " + err.message);
-    });
-  </script>
-</body>
+        // Dynamically replace at runtime (Vercel does this at build time for .env vars)
+        const resolvedClientId = clientId.replace("__", "").startsWith("NEXT_PUBLIC")
+          ? clientId
+          : process.env.NEXT_PUBLIC_CLIENT_ID;
+
+        const resolvedTenantId = tenantId.replace("__", "").startsWith("NEXT_PUBLIC")
+          ? tenantId
+          : process.env.NEXT_PUBLIC_TENANT_ID;
+
+        const msalConfig = {
+          auth: {
+            clientId: resolvedClientId,
+            authority: `https://login.microsoftonline.com/${resolvedTenantId}`
+          }
+        };
+
+        await microsoftTeams.app.initialize();
+
+        microsoftTeams.authentication.getAuthToken({
+          successCallback: async (ssoToken) => {
+            const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+            try {
+              const result = await msalInstance.acquireTokenSilent({
+                scopes: ["User.Read", "Files.Read"],
+                account: msalInstance.getAllAccounts()[0]
+              });
+
+              microsoftTeams.authentication.notifySuccess(result.accessToken);
+            } catch (silentErr) {
+              console.error("Silent token failed:", silentErr);
+              try {
+                const result = await msalInstance.acquireTokenPopup({
+                  scopes: ["User.Read", "Files.Read"]
+                });
+                microsoftTeams.authentication.notifySuccess(result.accessToken);
+              } catch (popupErr) {
+                console.error("Popup token failed:", popupErr);
+                microsoftTeams.authentication.notifyFailure(popupErr.message);
+              }
+            }
+          },
+          failureCallback: (err) => {
+            console.error("SSO failed:", err);
+            microsoftTeams.authentication.notifyFailure(err);
+          }
+        });
+      })();
+    </script>
+  </body>
 </html>
