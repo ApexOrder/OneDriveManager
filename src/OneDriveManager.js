@@ -16,7 +16,6 @@ const OneDriveManager = () => {
       addLog("✅ Teams SDK initialized. Requesting SSO token...");
 
       authentication.authenticate({
-         resources: ["https://graph.microsoft.com"],
   url: `https://one-drive-manager.vercel.app/auth.html`,
   width: 600,
   height: 535,
