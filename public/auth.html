@@ -3,35 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <title>Teams SSO Auth</title>
-  <script src="https://alcdn.msauth.net/browser/2.40.0/js/msal-browser.min.js"></script>
   <script src="https://statics.teams.cdn.office.net/sdk/v1.13.0/js/MicrosoftTeams.min.js"></script>
 </head>
 <body>
+  <p>Loading authentication...</p>
+
   <script>
-    (async () => {
-      const clientId = "755bd32d-b71e-4759-8423-bbe949e8fa89"; // Your real client ID
-      const tenantId = "e6034c41-717a-422c-8846-c8466bf7c45a"; // Your real tenant ID
+    console.log("👋 auth.html loaded");
 
-      microsoftTeams.app.initialize().then(() => {
-        const msalInstance = new msal.PublicClientApplication({
-          auth: {
-            clientId: clientId,
-            authority: `https://login.microsoftonline.com/${tenantId}`,
-            redirectUri: window.location.origin + "/auth.html"
-          }
-        });
+    microsoftTeams.app.initialize().then(() => {
+      console.log("✅ Teams SDK initialized in auth.html");
 
-        msalInstance
-          .ssoSilent({ loginHint: "", scopes: ["User.Read", "Files.ReadWrite.All", "openid", "profile"] })
-          .then(response => {
-            microsoftTeams.authentication.notifySuccess(response.accessToken);
-          })
-          .catch(err => {
-            console.error("❌ SSO Silent error:", err);
-            microsoftTeams.authentication.notifyFailure(err.toString());
-          });
+      microsoftTeams.authentication.getAuthToken({
+        successCallback: (token) => {
+          console.log("✅ Token acquired in auth.html");
+          microsoftTeams.authentication.notifySuccess(token);
+        },
+        failureCallback: (err) => {
+          console.error("❌ Auth failed in auth.html:", err);
+          microsoftTeams.authentication.notifyFailure(err);
+        }
       });
-    })();
+    }).catch(err => {
+      console.error("❌ Teams SDK init failed in auth.html:", err);
+      microsoftTeams.authentication.notifyFailure(err.toString());
+    });
   </script>
 </body>
 </html>
