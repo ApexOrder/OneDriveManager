@@ -1,32 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>Teams SSO Auth</title>
-  <script src="https://statics.teams.cdn.office.net/sdk/v1.13.0/js/MicrosoftTeams.min.js"></script>
+  <script src="https://res.cdn.office.net/teams-js/2.0.0/js/MicrosoftTeams.min.js"></script>
+  <style>
+    body {
+      background: #1e1e2f;
+      color: #fff;
+      font-family: Consolas, monospace;
+      padding: 20px;
+    }
+    .log {
+      background: #2b2b3d;
+      padding: 10px;
+      margin-top: 10px;
+      border-left: 4px solid #ffd700;
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
-  <p>Loading authentication...</p>
+  <h2>🔐 Loading authentication...</h2>
+  <div id="log" class="log">📜 Starting...</div>
 
   <script>
-    console.log("👋 auth.html loaded");
+    const log = (msg) => {
+      console.log(msg);
+      document.getElementById('log').textContent += `\n${msg}`;
+    };
+
+    log("🚀 Initializing Teams SDK...");
 
     microsoftTeams.app.initialize().then(() => {
-      console.log("✅ Teams SDK initialized in auth.html");
+      log("✅ Teams SDK initialized.");
+
+      log("🎟️ Requesting token from Teams...");
 
       microsoftTeams.authentication.getAuthToken({
         successCallback: (token) => {
-          console.log("✅ Token acquired in auth.html");
+          log("✅ Token received.");
+          
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            log("📖 Token Payload:");
+            log(`• aud: ${payload.aud}`);
+            log(`• scp: ${payload.scp}`);
+            log(`• upn: ${payload.upn}`);
+            log(`• oid: ${payload.oid}`);
+          } catch (e) {
+            log("⚠️ Failed to decode token.");
+          }
+
+          log("📤 Sending token to Teams host...");
           microsoftTeams.authentication.notifySuccess(token);
         },
         failureCallback: (err) => {
-          console.error("❌ Auth failed in auth.html:", err);
+          log(`❌ Auth failed: ${err}`);
           microsoftTeams.authentication.notifyFailure(err);
         }
       });
     }).catch(err => {
-      console.error("❌ Teams SDK init failed in auth.html:", err);
-      microsoftTeams.authentication.notifyFailure(err.toString());
+      log("❌ Teams SDK failed to initialize.");
+      microsoftTeams.authentication.notifyFailure(err.message);
     });
   </script>
 </body>
