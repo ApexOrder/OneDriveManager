@@ -16,6 +16,7 @@ const OneDriveManager = () => {
       addLog("✅ Teams SDK initialized. Requesting SSO token...");
 
       authentication.getAuthToken({
+        resources: ["https://graph.microsoft.com"],
         successCallback: (token) => {
           console.log("✅ SSO Token:", token);
           addLog("✅ SSO token received. Fetching OneDrive files...");
