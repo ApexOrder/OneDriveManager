@@ -1,12 +1,32 @@
-<!-- public/auth.html -->
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Redirecting...</title>
-    <script>
-      // Let MSAL finish handling redirect, then go back to app
-      window.location.href = "/";
-    </script>
-  </head>
-  <body></body>
+<head>
+  <title>Auth</title>
+  <script src="https://res.cdn.office.net/teams-js/2.0.0/js/MicrosoftTeams.min.js"></script>
+  <script src="https://alcdn.msauth.net/browser/2.34.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+  <script>
+    // Initialize MS Teams SDK (authentication context doesn't need app.initialize)
+    microsoftTeams.app.initialize().then(() => {
+      const msal = new msal.PublicClientApplication({
+        auth: {
+          clientId: "755bd32d-b71e-4759-8423-bbe949e8fa89", // Your App (client) ID
+          authority: "https://login.microsoftonline.com/e6034c41-717a-422c-8846-c8466bf7c45a", // Your tenant ID
+          redirectUri: window.location.href
+        }
+      });
+
+      msal.loginPopup({
+        scopes: ["https://graph.microsoft.com/.default", "openid", "profile"]
+      }).then(result => {
+        microsoftTeams.authentication.notifySuccess(result.accessToken);
+      }).catch(err => {
+        microsoftTeams.authentication.notifyFailure(err.toString());
+      });
+    }).catch(err => {
+      microsoftTeams.authentication.notifyFailure("Teams SDK failed: " + err.message);
+    });
+  </script>
+</body>
 </html>
