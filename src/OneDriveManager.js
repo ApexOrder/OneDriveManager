@@ -34,7 +34,7 @@ const OneDriveManager = () => {
   }
 
   setToken(token);
-}
+},
 
   failureCallback: (err) => {
     console.error("❌ Teams SSO failed:", err);
