@@ -18,10 +18,24 @@ const OneDriveManager = () => {
       authentication.getAuthToken({
   resources: ["https://graph.microsoft.com"],
   successCallback: (token) => {
-    console.log("✅ SSO Token:", token);
-    addLog("✅ SSO token received. Fetching OneDrive files...");
-    setToken(token);
-  },
+  addLog("✅ SSO token received. Fetching OneDrive files...");
+
+  // Decode token
+  try {
+    const parts = token.split(".");
+    const payload = JSON.parse(atob(parts[1]));
+    addLog("🔍 Token payload:");
+    addLog("• aud: " + payload.aud);
+    addLog("• scopes: " + payload.scp);
+    addLog("• upn: " + payload.upn);
+    addLog("• oid: " + payload.oid);
+  } catch (e) {
+    addLog("⚠️ Failed to decode token payload.");
+  }
+
+  setToken(token);
+}
+
   failureCallback: (err) => {
     console.error("❌ Teams SSO failed:", err);
     addLog("❌ Teams SSO failed: " + err);
