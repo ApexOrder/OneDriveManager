@@ -6,17 +6,16 @@
   <script src="https://res.cdn.office.net/teams-js/2.17.0/js/MicrosoftTeams.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
       background-color: #111;
       color: #f1f1f1;
+      font-family: monospace;
       padding: 20px;
     }
     #log {
       white-space: pre-wrap;
       background: #222;
       padding: 15px;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 6px;
     }
   </style>
 </head>
@@ -26,38 +25,36 @@
 
   <script>
     const log = (msg) => {
-      const logEl = document.getElementById("log");
-      logEl.textContent += `\n${msg}`;
+      document.getElementById("log").textContent += "\n" + msg;
     };
 
-    log("📦 Starting Teams SDK init...");
+    log("📦 Initializing SDK...");
 
     microsoftTeams.app.initialize().then(() => {
-      log("✅ Teams SDK initialized");
+      log("✅ SDK initialized");
 
       microsoftTeams.authentication.getAuthToken({
         resources: ["https://graph.microsoft.com"],
         successCallback: (token) => {
-          log("✅ Token acquired.");
+          log("✅ Token received");
           try {
-            const parts = token.split(".");
-            const payload = JSON.parse(atob(parts[1]));
+            const payload = JSON.parse(atob(token.split(".")[1]));
             log("🔍 Token payload:");
             log("• aud: " + payload.aud);
             log("• scp: " + payload.scp);
             log("• upn: " + payload.upn);
-            log("• oid: " + payload.oid);
-          } catch (e) {
+          } catch {
             log("⚠️ Failed to decode token.");
           }
 
           microsoftTeams.authentication.notifySuccess(token);
         },
-        failureCallback: (err) => {
-          log("❌ getAuthToken failed: " + err);
-          microsoftTeams.authentication.notifyFailure(err);
+        failureCallback: (error) => {
+          log("❌ getAuthToken failed: " + error);
+          microsoftTeams.authentication.notifyFailure(error);
         }
       });
+
     }).catch(err => {
       log("❌ SDK init error: " + err.message);
     });
